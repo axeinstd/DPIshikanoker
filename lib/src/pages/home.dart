@@ -14,10 +14,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WindowListener {
   bool isProcessRunning = false;
-  List<bool> settings = [true, true, false, false, true, true, false, true, false, false, true, false, true, true, true, true];
+  List<bool> settings = [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
   Process? _process;
   List<String> command = ['--blacklist', 'lib/src/goodbyedpi/russia-youtube.txt', '--blacklist', 'lib/src/goodbyedpi/russia-blacklist.txt'], defaultCommand = ['-9', '--blacklist', 'lib/src/goodbyedpi/russia-youtube.txt', '--blacklist', 'lib/src/goodbyedpi/russia-blacklist.txt'], commandWithCustomconfig = ['-9', '--blacklist', 'lib/src/goodbyedpi/russia-youtube.txt', '--blacklist', 'lib/src/goodbyedpi/russia-blacklist.txt'];
-
+  List functions = gdpi_functions;
   Future<void> _startProcess() async {
     _process = await Process.start(pathG, settings[0] ? defaultCommand : settings[1] ? commandWithCustomconfig : command);
     debugPrint('Process started with ${settings[0] ? defaultCommand : settings[1] ? commandWithCustomconfig : command} arguments');
@@ -49,46 +49,46 @@ class _HomePageState extends State<HomePage> with WindowListener {
   }
 
   Future<void> _initSystemTray() async {
-  final AppWindow appWindow = AppWindow();
-  final SystemTray systemTray = SystemTray();
+    final AppWindow appWindow = AppWindow();
+    final SystemTray systemTray = SystemTray();
 
-  // We first init the systray menu
-  await systemTray.initSystemTray(
-    title: "system tray",
-    iconPath: 'assets/icon.ico'
-  );
+    // We first init the systray menu
+    await systemTray.initSystemTray(
+      title: "system tray",
+      iconPath: 'assets/icon.ico'
+    );
 
-  // create context menu
-  final Menu menu = Menu();
-  await menu.buildFrom([
-    MenuItemLabel(label: 'Открыть', onClicked: (menuItem) {windowManager.show();}),
-    MenuItemLabel(label: isProcessRunning ? 'Отключить' : 'Запустить', onClicked: (menuItem) {
-      setState(() {
-              
-              isProcessRunning = !isProcessRunning;
-              if (isProcessRunning) {
-                _startProcess();
-              } else{
-                _killProcess();
-              }
-              _initSystemTray();
-            });
-    }),
-    MenuItemLabel(label: 'Выйти', onClicked: (menuItem) async {
-      await _killProcess();
-      await windowManager.destroy();
-    }),
-  ]);
+    // create context menu
+    final Menu menu = Menu();
+    await menu.buildFrom([
+      MenuItemLabel(label: 'Открыть', onClicked: (menuItem) {windowManager.show();}),
+      MenuItemLabel(label: isProcessRunning ? 'Отключить' : 'Запустить', onClicked: (menuItem) {
+        setState(() {
+                
+                isProcessRunning = !isProcessRunning;
+                if (isProcessRunning) {
+                  _startProcess();
+                } else{
+                  _killProcess();
+                }
+                _initSystemTray();
+              });
+      }),
+      MenuItemLabel(label: 'Выйти', onClicked: (menuItem) async {
+        await _killProcess();
+        await windowManager.destroy();
+      }),
+    ]);
 
-  await systemTray.setContextMenu(menu);
-  systemTray.registerSystemTrayEventHandler((eventName) {
-    debugPrint("eventName: $eventName");
-    if (eventName == kSystemTrayEventClick) {
-       Platform.isWindows ? appWindow.show() : systemTray.popUpContextMenu();
-    } else if (eventName == kSystemTrayEventRightClick) {
-       Platform.isWindows ? systemTray.popUpContextMenu() : appWindow.show();
-    }
-  });
+    await systemTray.setContextMenu(menu);
+    systemTray.registerSystemTrayEventHandler((eventName) {
+      debugPrint("eventName: $eventName");
+      if (eventName == kSystemTrayEventClick) {
+        Platform.isWindows ? appWindow.show() : systemTray.popUpContextMenu();
+      } else if (eventName == kSystemTrayEventRightClick) {
+        Platform.isWindows ? systemTray.popUpContextMenu() : appWindow.show();
+      }
+    });
   }
 
   @override
@@ -140,7 +140,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                   itemBuilder: (BuildContext context, int index) {
                     TextEditingController controller = TextEditingController();
                     if (functions[index][2]){
-                      controller.text = functions[index].length == 4 ? functions[index][3].toString() : '';
+                      controller.text = functions[index].length == 4 ? functions[index][3] : '';
                     }
                     return Padding(
                       padding: const EdgeInsets.only(top: 5),
@@ -156,6 +156,22 @@ class _HomePageState extends State<HomePage> with WindowListener {
                               height: 45,
                               child: TextField(
                                 controller: controller,
+                                onSubmitted: (value) {
+                                  setState(() {
+                                    final indexInCommand = command.indexOf(functions[index][1]);
+                                    command[indexInCommand + 1] = value;
+                                    functions[index][3] = value;
+                                    debugPrint(functions[index][3]);
+                                  });
+                                },
+                                onTapOutside: (event) {
+                                  setState(() {
+                                    final indexInCommand = command.indexOf(functions[index][1]);
+                                    command[indexInCommand + 1] = controller.text;
+                                    functions[index][3] = controller.text;
+                                    FocusScope.of(context).requestFocus(FocusNode());
+                                  });
+                                },
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                 ),
@@ -182,8 +198,17 @@ class _HomePageState extends State<HomePage> with WindowListener {
                             settings[index] = value;
                             if (value && functions[index][1] != '') {
                               command.add(functions[index][1]);
+                              if (functions[index][2]){
+                                command.add(functions[index][3]);
+                              }
                             } else {
-                              command.remove(functions[index][1]);
+                              final indexInCommand = command.indexOf(functions[index][1]);
+                              if (indexInCommand != -1) {
+                                command.removeAt(indexInCommand);
+                                if (functions[index][2]) {
+                                  command.removeAt(indexInCommand);
+                                }
+                              }
                             }
                           });} : null)
                         ],
