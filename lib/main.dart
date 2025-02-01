@@ -7,6 +7,7 @@ import 'package:win32/win32.dart';
 import 'package:ffi/ffi.dart';
 import 'package:dpi_shikanoker_on_gdbdpi/src/dep/conf_gdpi.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();

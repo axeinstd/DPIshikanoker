@@ -1,9 +1,13 @@
+import 'package:dpi_shikanoker_on_gdbdpi/src/translation/en.dart';
+import 'package:dpi_shikanoker_on_gdbdpi/src/translation/ru.dart';
 import 'package:flutter/material.dart';
 import 'package:dpi_shikanoker_on_gdbdpi/src/dep/conf_gdpi.dart';
 import 'dart:io';
 import 'package:system_tray/system_tray.dart';
+import 'package:win32/win32.dart';
 import 'package:window_manager/window_manager.dart';
 import 'about.dart';
+import 'dart:convert';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,7 +21,16 @@ class _HomePageState extends State<HomePage> with WindowListener {
   List<bool> settings = [true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false];
   Process? _process;
   List<String> command = ['--blacklist', 'lib/src/goodbyedpi/russia-youtube.txt', '--blacklist', 'lib/src/goodbyedpi/russia-blacklist.txt'], defaultCommand = ['-9', '--fake-gen', '5', '--fake-from-hex', '160301FFFF01FFFFFF0303594F5552204144564552544953454D454E542048455245202D202431302F6D6F000000000009000000050003000000', '--blacklist', 'lib/src/goodbyedpi/russia-youtube.txt', '--blacklist', 'lib/src/goodbyedpi/russia-blacklist.txt'], commandWithCustomconfig = ['-9', '--blacklist', 'lib/src/goodbyedpi/russia-youtube.txt', '--blacklist', 'lib/src/goodbyedpi/russia-blacklist.txt'];
-  List functions = gdpi_functions;
+  List functions = [];
+  Translations currTranslarion = Translations.ru;
+  Map<String, dynamic> decoded = {
+    "translation": "ru"
+  };
+  File conf = File(pathConfig);
+  Map<Translations, dynamic> translationMap = {
+    Translations.ru: RuTranslation(),
+    Translations.en: EnTranslation()
+  };
   Future<void> _startProcess() async {
     _process = await Process.start(pathG, settings[0] ? defaultCommand : settings[1] ? commandWithCustomconfig : command);
     debugPrint('Process started with ${settings[0] ? defaultCommand : settings[1] ? commandWithCustomconfig : command} arguments');
@@ -43,6 +56,9 @@ class _HomePageState extends State<HomePage> with WindowListener {
 
   Future<void> _init() async {
     await windowManager.setPreventClose(true);
+    decoded = jsonDecode(await conf.readAsString());
+    currTranslarion = (decoded["translation"] == "Translations.ru") ? Translations.ru : Translations.en;
+    functions = genGdpFun(currTranslarion);
     setState(() {
       
     });
@@ -61,8 +77,8 @@ class _HomePageState extends State<HomePage> with WindowListener {
     // create context menu
     final Menu menu = Menu();
     await menu.buildFrom([
-      MenuItemLabel(label: 'Открыть', onClicked: (menuItem) {windowManager.show();}),
-      MenuItemLabel(label: isProcessRunning ? 'Отключить' : 'Запустить', onClicked: (menuItem) {
+      MenuItemLabel(label: translationMap[currTranslarion].open, onClicked: (menuItem) {windowManager.show();}),
+      MenuItemLabel(label: isProcessRunning ? translationMap[currTranslarion].stop : translationMap[currTranslarion].start, onClicked: (menuItem) {
         setState(() {
                 
                 isProcessRunning = !isProcessRunning;
@@ -74,7 +90,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                 _initSystemTray();
               });
       }),
-      MenuItemLabel(label: 'Выйти', onClicked: (menuItem) async {
+      MenuItemLabel(label: translationMap[currTranslarion].quit, onClicked: (menuItem) async {
         await _killProcess();
         await windowManager.destroy();
       }),
@@ -116,6 +132,20 @@ class _HomePageState extends State<HomePage> with WindowListener {
       appBar: AppBar(
         title: const Text('DPIшиканокер', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 23)),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: IconButton(
+              onPressed: () async {
+                currTranslarion = (currTranslarion == Translations.ru) ? Translations.en : Translations.ru;
+                decoded["translation"] = currTranslarion.toString();
+                await conf.writeAsString(jsonEncode(decoded));
+                setState(() {
+                  functions = genGdpFun(currTranslarion);
+                });
+              }, 
+              icon: const Icon(Icons.translate)
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 10),
             child: IconButton(
@@ -229,7 +259,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                 _killProcess();
               }
               _initSystemTray();
-            });}, child: isProcessRunning ? _process != null ? const Text('Отключить') : const LinearProgressIndicator() : const Text('Запустить'))
+            });}, child: isProcessRunning ? _process != null ? Text(translationMap[currTranslarion].stop) : const LinearProgressIndicator() : Text(translationMap[currTranslarion].start))
           )
         ],
       )
@@ -243,17 +273,17 @@ class _HomePageState extends State<HomePage> with WindowListener {
         context: context,
         builder: (_) {
           return AlertDialog(
-            title: const Text('Закрыть?'),
+            title: Text(translationMap[currTranslarion].isClosing),
             actions: [
               TextButton(
-                child: const Text('В трей'),
+                child: Text(translationMap[currTranslarion].isTray),
                 onPressed: () async {
                   Navigator.of(context).pop();
                   await windowManager.hide();
                 },
               ),
               TextButton(
-                child: const Text('Закрыть'),
+                child: Text(translationMap[currTranslarion].close),
                 onPressed: () async {
                   Navigator.of(context).pop();
                   await _killProcess();
